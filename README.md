@@ -1,49 +1,51 @@
+[English](README.md) · [Русский](README.ru.md)
+
 # elt-warehouse
 
-End-to-end витрина данных
+End-to-end data mart
 
- elt-пайплайн `raw - staging - core - marts` для postgresql. 
+ elt pipeline `raw - staging - core - marts` for postgresql. 
  
- Из сырых денормализованных источников строится звёздная схема и витрины-агрегаты, корректность проверяется автоматическими тестами качества данных.
+ It builds a star schema and aggregate marts from raw, denormalized (flat, not split into tables) source data. Automated data quality tests check that the result is correct.
 
-## Содержание
+## Contents
 
-- [Архитектура](#архитектура)
-- [Модель данных](#модель-данных)
-- [Стек](#стек)
-- [Данные](#данные)
-- [Пример запуска](#пример-запуска)
-- [Проверки качества](#проверки-качества)
-- [Конфигурация](#конфигурация)
-- [Заметки](#заметки)
+- [Architecture](#architecture)
+- [Data Model](#data-model)
+- [Stack](#stack)
+- [Data](#data)
+- [Example Run](#example-run)
+- [Quality Checks](#quality-checks)
+- [Configuration](#configuration)
+- [Notes](#notes)
 
-## Архитектура
+## Architecture
 
-![lineage](docs/lineage.png)
+![lineage](docs/lineage.en.png)
 
-Слои:
-- **raw** сырые источники (`warehouse/generate_raw.py`);
-- **staging** (`warehouse/sql/staging`) типизация, `trim`/`initcap`, дедупликация по ключу, отсев битых строк в `stg.orders`;
-- **core** (`warehouse/sql/core`) звёздная схема: измерения с суррогатными ключами (`row_number`) и факт `fact_sales` с внешними ключами;
-- **marts** (`warehouse/sql/marts`) витрины-агрегаты (`daily_revenue`, `category_performance`).
+Layers:
+- **raw** raw sources (`warehouse/generate_raw.py`);
+- **staging** (`warehouse/sql/staging`) sets data types, runs `trim`/`initcap`, removes duplicates by key, and drops bad rows in `stg.orders`;
+- **core** (`warehouse/sql/core`) star schema: dimensions with surrogate keys (`row_number`) and the `fact_sales` fact table with foreign keys;
+- **marts** (`warehouse/sql/marts`) aggregate marts (`daily_revenue`, `category_performance`).
 
-Порядок слоёв и файлов внутри задаётся именами (`01_…`, `02_…`).
+The names of the layers and of the files inside them set the order (`01_…`, `02_…`).
 
-Раннер `warehouse/pipeline.py` применяет их по очереди. Каждый шаг `drop/create`.
+The runner `warehouse/pipeline.py` applies them one by one. Each step does `drop/create`.
 
-## Модель данных
+## Data Model
 
 ![star](docs/star.png)
 
-## Стек
+## Stack
 
 python, postgresql.
 
-## Данные
+## Data
 
-Источник `raw.orders` имитирует выгрузку из операционной системы, где одна плоская таблица, все поля текстом, разный регистр (`Laptops`/`LAPTOPS`/`laptops`), лишние пробелы в именах, числа строками, изредка `null` в стране и ~5% дублирующих строк. Из неё дальше восстанавливается нормализованная звёздная схема.
+The `raw.orders` source looks like an export from a live operational system. It is one flat table. All fields are text. The casing is mixed (`Laptops`/`LAPTOPS`/`laptops`). Names have extra spaces. Numbers are stored as strings. The country is sometimes `null`. About 5% of the rows are duplicates. From this source the pipeline rebuilds a clean star schema.
 
-## Пример запуска
+## Example Run
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -55,7 +57,7 @@ python -m warehouse.generate_raw
 python -m warehouse.pipeline
 ```
 
-Вывод `pipeline` показывает число строк по слоям:
+The `pipeline` output shows the row counts for each layer:
 
 ```
   raw.orders                 5250
@@ -69,17 +71,17 @@ python -m warehouse.pipeline
   mart.daily_revenue         730
 ```
 
-## Проверки качества
+## Quality Checks
 
 ```bash
 python -m tests.run
 ```
 
-Прогоняет sql-ассерты из `tests/checks.yaml` (каждый должен вернуть 0 строк-нарушений) и сверку слоёв.
+This runs the sql checks from `tests/checks.yaml` (each one must return 0 bad rows) and a cross-layer reconciliation (check between layers).
 
-Покрыто: дедуп staging, отсутствие null в ключах факта, уникальность суррогатных ключей и `sale_id`, ссылочная целостность факта на измерения, сходимость суммы (`fact.amount` == `stg`), отсутствие неположительных сумм.
+It covers: staging dedup, no nulls in fact keys, unique surrogate keys and `sale_id`, referential integrity from the fact to the dimensions, sum reconciliation (`fact.amount` == `stg`), and no amounts that are zero or negative.
 
-Отчёт пишется в `tests/report.md`. Реальный пример:
+The report is saved to `tests/report.md`. A real example:
 
 - checks passed: **8/8**
 
@@ -101,12 +103,12 @@ python -m tests.run
 - fact revenue: 27695556.03
 ```
 
-## Конфигурация
+## Configuration
 
-| переменная | по умолчанию |
+| variable | default |
 |------------|--------------|
 | `database_url` | `postgresql://dwh:dwh@localhost:5432/dwh` |
 
-## Заметки
+## Notes
 
-Натуральные ключи измерений - бизнес-имена (`customer_name`, `product_name`, `store_name`). В реальном хранилище их стоит заменить на устойчивые коды источника и добавить обработку медленно меняющихся измерений (scd2) и инкрементальную загрузку вместо полной пересборки.
+The natural keys of the dimensions are business names (`customer_name`, `product_name`, `store_name`). In a real warehouse you should replace them with stable source codes. You should also add support for slowly changing dimensions (scd2) and incremental loading, instead of rebuilding everything each time.
