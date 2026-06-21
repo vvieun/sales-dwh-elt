@@ -1,0 +1,32 @@
+staging_dedup:
+  select order_id from stg.orders group by order_id having count(*) > 1
+
+fact_no_null_keys: |
+  select sale_id from core.fact_sales
+  where date_key is null or customer_key is null
+     or product_key is null or store_key is null
+
+fact_unique_sale_id:
+  select sale_id from core.fact_sales group by sale_id having count(*) > 1
+
+dim_customer_unique_key:
+  select customer_key from core.dim_customer group by customer_key having count(*) > 1
+
+ref_integrity_date: |
+  select f.sale_id from core.fact_sales f
+  left join core.dim_date d using (date_key)
+  where d.date_key is null
+
+ref_integrity_product: |
+  select f.sale_id from core.fact_sales f
+  left join core.dim_product p using (product_key)
+  where p.product_key is null
+
+amount_reconciliation: |
+  select 1
+  from (select sum(amount) a from core.fact_sales) f,
+       (select sum(unit_price * quantity) a from stg.orders) s
+  where abs(f.a - s.a) > 0.01
+
+no_negative_amounts:
+  select sale_id from core.fact_sales where amount <= 0
