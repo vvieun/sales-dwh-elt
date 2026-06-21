@@ -101,7 +101,6 @@ python -m tests.run
 - stg rows: 5000
 - fact rows: 5000
 - fact revenue: 27695556.03
-```
 
 ## Конфигурация
 

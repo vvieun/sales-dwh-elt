@@ -101,7 +101,6 @@ The report is saved to `tests/report.md`. A real example:
 - stg rows: 5000
 - fact rows: 5000
 - fact revenue: 27695556.03
-```
 
 ## Configuration
 
